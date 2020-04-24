@@ -11,10 +11,10 @@
 # Tel : 0041(0)795533812
 # ORCID: https://orcid.org/0000-0002-7979-0994
 # 
-# Eric Ménétré
+# Eric M?n?tr?
 # Research Assistant
 # EEG and Epilepsy Unit, University Hospitals of Geneva.
-# Mail:Eric.Ménétré@hcuge.ch
+# Mail:Eric.M?n?tr?@hcuge.ch
 # ORCID: https://orcid.org/0000-0002-1101-1288
 # 
 # Pieter van Mierlo
@@ -51,10 +51,8 @@ library(emmeans)
 ##    Changes in spiking activity during the pre-ictal period   -
 ##---------------------------------------------------------------
 
-# DO NOT INCLUDE : setwd("C:/Users/EricM/ownCloud/HUG/Projet Pia/Analyses/AED_withdrawal_effect_spikes")
-
 # Data import
-data_N_sz <- read_excel("final data/data_N_sz.xlsx")
+data_N_sz <- read_excel("data_N_sz.xlsx")
 View(data_N_sz)
 
 # Transformation of the data to satisfy the expectations of the tidy format
@@ -191,19 +189,16 @@ dev.off()
 ##------------------------------------------------------------------------
 
 # data import
-data_withdr <- read_excel("final data/data_withdr.xlsx")
+data_withdr <- read_excel("data_withdr.xlsx")
 View(data_withdr)
-data_withdr <- data_withdr%>%dplyr::select(-Code)%>%
+data_withdr <- data_withdr%>%
   dplyr::mutate(crise = ifelse(is.na(crise), "no sz", crise)) # N_sz has many NA since not all patients experienced seizures. These NA were transformed in no_sz.
 
 # Transformation to obtain the correct variable types
 data_withdr$code <- factor(data_withdr$code)
-data_withdr$Patients <- factor(data_withdr$Patients)
 data_withdr$onoff <- factor(data_withdr$onoff)
-data_withdr$Categories_Spikes <- factor(data_withdr$Categories_Spikes)
 data_withdr$delay <- factor(data_withdr$delay)
 data_withdr <- as.data.frame(data_withdr)
-for(i in 11:26){data_withdr[,i] <- as.logical(data_withdr[,i])}
 data_withdr$Les <- factor(data_withdr$Les)
 data_withdr$Localisation <- factor(data_withdr$Localisation)
 data_withdr$crise <- factor(data_withdr$crise)
@@ -211,16 +206,13 @@ data_withdr$crise <- factor(data_withdr$crise)
 # Rename variables
 data_withdr <- data_withdr%>%
   rename(pat_code = code,
-         pat_number = Patients,
-         pct_withdr = pct.sevrage,
          N_spikes = value,
-         N_spikes_cat = Categories_Spikes,
          N_day_withdr = `Delai sevrage`,
          cat_withdr_delay = delay,
          N_AED = `N molecules`,
          pres_lesion = Les,
          loc_lesion = Localisation,
-         N_day_monitoring = `durée monitoring EEG`,
+         N_day_monitoring = `durÃ©e monitoring EEG`,
          sz_type = crise)
 
 
