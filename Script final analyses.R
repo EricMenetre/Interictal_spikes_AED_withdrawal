@@ -11,7 +11,7 @@
 # Tel : 0041(0)795533812
 # ORCID: https://orcid.org/0000-0002-7979-0994
 # 
-# Eric M?n?tr?
+# Eric MENETRE
 # Research Assistant
 # EEG and Epilepsy Unit, University Hospitals of Geneva.
 # Mail:Eric.M?n?tr?@hcuge.ch
@@ -66,9 +66,10 @@ data_tidy <- data_N_sz%>%
                                            Localisation == "L temporal" ~ "temporal",
                                            TRUE ~ "extratemporal"))
 
-# Transformation of all the categorical variables as factor
+View(data_tidy)
+
+# Transformation of all the categorical variables to factor
 data_tidy$Patient <- factor(data_tidy$Patient)
-data_tidy$N_crise_P <- factor(data_tidy$N_crise_P)
 data_tidy$Type <- factor(data_tidy$Type)
 data_tidy$Localisation <- factor(data_tidy$Localisation)
 data_tidy$Les <- factor(data_tidy$Les)
@@ -229,12 +230,21 @@ data_withdr<- data_withdr%>%
 data_withdr%>%
   ggplot(aes(x = log_N_spikes))+ geom_histogram()# Quite well distributed except for one bin
 
+
+
 # Splitting of the data frame according to the onoff variable --> off1 and off2
 data_withdr_off2 <- data_withdr%>%
   filter(onoff == "Off2" | onoff == "On")
 
 data_withdr_off1 <- data_withdr%>%
   filter(onoff == "Off1"| onoff == "On")
+
+data_withdr_off1%>%
+  ggplot(aes(x=pat_code, y = log_N_spikes))+geom_point()+theme_minimal() # For each patient differences in spiking rate between on anf off
+
+data_withdr_off2%>%
+  ggplot(aes(x=pat_code, y = log_N_spikes))+geom_point()+theme_minimal() # For each patient differences in spiking rate between on anf off
+# 2 patients with NA --> after removing 6h before and after the seizure --> no more data
 
 
 # STATISTICAL MODELING
@@ -248,7 +258,7 @@ exp_plots_LMM(data_withdr, data_withdr$log_N_spikes, data_withdr$pat_number, dat
 ##### Fitting of the best model for **OFF1** 
 m0_glmer <- glmer(lapl_N_spikes ~ 1 + (1|pat_code),
             family = gaussian(link = "log"),
-            data = data_withdr_off1) # AIC = 901.3 ; BIC = 908.1 ; deviance = 895.3
+            data = data_withdr_off1) 
 summary(m0_glmer)
 LMM_check(m0_glmer)
 
@@ -260,7 +270,9 @@ LMM_check(m0_lmer) # The residuals are not well distributed for a lmer model eve
 
 m1 <- glmer(lapl_N_spikes ~ onoff + (1|pat_code),
             family = gaussian(link = "log"),
-            data = data_withdr_off1)
+            data = data_withdr_off1,
+            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
+                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
 
 anova(m0_glmer, m1) # Sig
 summary(m1)
@@ -373,8 +385,8 @@ dev.off()
 m0_glmer <- glmer(lapl_N_spikes ~ 1 + (1|pat_code),
                   family = gaussian(link = "log"),
                   data = data_withdr_off2)
-summary(m0)
-LMM_check(m0)
+summary(m0_glmer)
+LMM_check(m0_glmer) # 2 Extreme residus --> to remove ? 
 
 m1 <- glmer(lapl_N_spikes ~ onoff + (1|pat_code),
             family = gaussian(link = "log"),
@@ -472,7 +484,7 @@ m11 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*loc_temp_ext + onoff*cat_
                                     optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
 anova(m10, m11) # Sig
 summary(m11)
-LMM_check(m11)
+LMM_check(m11) # Some extreme residus --> to remove ?
 
 list_models <- list(M0 = m0_glmer, M1 = m1, M2 = m2, M3 = m3, M4 = m4, M5 = m5, M6 = m6, M7 = m7, M8 = m8, M10 = m10, M11 = m11)
 mod_fitting(list_models)

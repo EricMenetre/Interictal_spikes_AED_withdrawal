@@ -45,7 +45,7 @@ library(RColorBrewer)
 ##---------------------------------------------------------------
 
 # Data import
-data_N_sz <- read_excel("final data/data_N_sz.xlsx")
+data_N_sz <- read_excel("data_N_sz.xlsx")
 View(data_N_sz)
 
 # Transformation of the data to satisfy the expectations of the tidy format
@@ -88,7 +88,7 @@ p1 <- data_tidy%>%
                 width = 0.2,
                 alpha = 0.8,
                 size = 0.6)+
-  coord_cartesian(ylim = c(50,205))+
+  coord_cartesian(ylim = c(50,220))+
   labs(x = "Time of the measure",
        y = "Averaged mean of spikes",
        title = "Main effect of time of measure")+
@@ -116,7 +116,7 @@ p2 <- data_tidy%>%
                 alpha = 0.8,
                 size = 0.6,
                 position = position_dodge())+
-  coord_cartesian(ylim = c(50,205))+
+  coord_cartesian(ylim = c(50,220))+
   labs(x = "Time of the measure",
        y = "Averaged mean of spikes",
        title = "Effect of time of measure by the epilepsy type",
@@ -144,7 +144,7 @@ p3 <- data_tidy%>%
                 alpha = 0.8,
                 size = 0.6,
                 position = position_dodge())+
-  coord_cartesian(ylim = c(50,205))+
+  coord_cartesian(ylim = c(50,220))+
   labs(x = "Time of the measure",
        y = "Averaged mean of spikes",
        title = "Effect of time of measure by localisation",
@@ -172,17 +172,19 @@ p4 <- data_tidy%>%
                 alpha = 0.8,
                 size = 0.6,
                 position = position_dodge())+
-  coord_cartesian(ylim = c(50,205))+
+  coord_cartesian(ylim = c(50,220))+
   labs(x = "Time of the measure",
        y = "Averaged mean of spikes",
        fill = "Seizure type",
        title = "Effect of time of measure by the seizure type")+
   scale_fill_brewer(palette = "Reds")
 
-ggsave("First_endpoint_results.jpg", dpi = 800)
 ggarrange(p1,p2,p3,p4)
+# ggsave("First_endpoint_results.jpg", dpi = 800)
+
 
 # Plot of the effect of increase in spike rate depending on the seizure occurence.
+# Interesting to test a quadratic version of the N_crise_P effect ? 
 data_N_sz%>%
   filter(N_crise_P <= 4)%>%
   group_by(N_crise_P)%>%
@@ -196,26 +198,24 @@ data_N_sz%>%
   theme_minimal()+
   labs(x= "Seizure occurence", y = "log(spike rate pre-ictal) - log(spike rate baseline)")+
   annotate("text", x = 2.5, y = 100, label = "***", size = 9)
-ggsave("Evolution seizures spike rate_means.jpg", dpi = 800)
+
+#ggsave("Evolution seizures spike rate_means.jpg", dpi = 800)
 
 ##------------------------------------------------------------------------
 ##  Influence of AEDs withdrawal on global interictal spiking activity   -
 ##------------------------------------------------------------------------
 
 # data import
-data_withdr <- read_excel("final data/data_withdr.xlsx")
+data_withdr <- read_excel("data_withdr.xlsx")
 View(data_withdr)
-data_withdr <- data_withdr%>%dplyr::select(-Code)%>%
+data_withdr <- data_withdr%>%
   dplyr::mutate(crise = ifelse(is.na(crise), "no sz", crise)) # N_sz has many NA since not all patients experienced seizures. These NA were transformed in no_sz.
 
 # Transformation to obtain the correct variable types
 data_withdr$code <- factor(data_withdr$code)
-data_withdr$Patients <- factor(data_withdr$Patients)
 data_withdr$onoff <- factor(data_withdr$onoff)
-data_withdr$Categories_Spikes <- factor(data_withdr$Categories_Spikes)
 data_withdr$delay <- factor(data_withdr$delay)
 data_withdr <- as.data.frame(data_withdr)
-for(i in 11:26){data_withdr[,i] <- as.logical(data_withdr[,i])}
 data_withdr$Les <- factor(data_withdr$Les)
 data_withdr$Localisation <- factor(data_withdr$Localisation)
 data_withdr$crise <- factor(data_withdr$crise)
@@ -223,10 +223,7 @@ data_withdr$crise <- factor(data_withdr$crise)
 # Rename variables
 data_withdr <- data_withdr%>%
   rename(pat_code = code,
-         pat_number = Patients,
-         pct_withdr = pct.sevrage,
          N_spikes = value,
-         N_spikes_cat = Categories_Spikes,
          N_day_withdr = `Delai sevrage`,
          cat_withdr_delay = delay,
          N_AED = `N molecules`,
@@ -238,9 +235,6 @@ data_withdr <- data_withdr%>%
 
 str(data_withdr)
 
-
-
-
 # Data transformation to satisfy linearity --> Laplace and log-transform
 data_withdr<- data_withdr%>%
   dplyr::mutate(lapl_N_spikes = N_spikes +  0.0001, # Laplacian transformation
@@ -249,10 +243,10 @@ data_withdr<- data_withdr%>%
                                          loc_lesion == "L temporal" ~ "Temporal",
                                          TRUE ~ "Extratemporal")) # Creation of a new variable groupping the localisation of the patients lesion site: either temporal or extra-temporal
 
-
-
 data_withdr%>%
   ggplot(aes(x = log_N_spikes))+ geom_histogram()# Quite well distributed except for one bin
+
+
 
 # Splitting of the data frame according to the onoff variable --> off1 and off2
 data_withdr_off2 <- data_withdr%>%
@@ -260,6 +254,13 @@ data_withdr_off2 <- data_withdr%>%
 
 data_withdr_off1 <- data_withdr%>%
   filter(onoff == "Off1"| onoff == "On")
+
+data_withdr_off1%>%
+  ggplot(aes(x=pat_code, y = log_N_spikes))+geom_point()+theme_minimal() # For each patient differences in spiking rate between on anf off
+
+data_withdr_off2%>%
+  ggplot(aes(x=pat_code, y = log_N_spikes))+geom_point()+theme_minimal() # For each patient differences in spiking rate between on anf off
+# 2 patients with NA --> after removing 6h before and after the seizure --> no more data
 
 
 # GRAPHICAL EXPLORATION

@@ -4,9 +4,9 @@
 
 ### data_tidy (transformation of data_N_sz)
 * Patient: code of each patient, coded as factor
-* N_crise_P: number of seizure occurence per patient, coded as factor
+* N_crise_P: number of seizure occurence per patient, coded as numeric
 * Type: type of seizure, either GTCS, Focal or No seizure, coded as factor
-* Localisation: localisation of the epileptic foyer by lobe, coded as factor
+* Localisation: localisation of the epileptic foyer by lobe (temporal - extratemporal), coded as factor
 * Les: type of epilepsy, either lesional of non-lesional
 * time: time of measure of the spiking activity, either duting baseline or in the pre-ictal period, coded as factor
 * spikes: number of epileptic spikes detected, coded as numerical
@@ -33,5 +33,6 @@
 ## Contact information
 
 Eric.Menetre@unige.ch
+
 Eric.Menetre@hcuge.ch
 
