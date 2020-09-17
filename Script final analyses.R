@@ -46,6 +46,7 @@ library(ggpubr)
 library(MuMIn)
 library(car)
 library(emmeans)
+library(glmmTMB)
 
 ##---------------------------------------------------------------
 ##    Changes in spiking activity during the pre-ictal period   -
@@ -82,102 +83,62 @@ exp_plots_LMM(data_tidy, data_tidy$spikes, data_tidy$Patient, data_tidy$N_crise_
 
 # STATISTICAL MODELING
 # From the simpler (empty) model to the most complete one, comparaison of which one reduces the most the AIC, BIC and deviance
-m0 <- glmer(spikes ~ 1 + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
+m0 <- glmmTMB(spikes~ 1 + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9387.22
 
-summary(m0)
-LMM_check(m0)
+m1 <- glmmTMB(spikes ~ time + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9380.62
 
-m1 <- glmer(spikes ~ time + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
+m2 <- glmmTMB(spikes ~ time + N_crise_P + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9360.44
 
-summary(m1)
-LMM_check(m1)
-anova(m0, m1) # Significant
+m3 <- glmmTMB(spikes ~ time + N_crise_P + Type + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9072.89
 
-m2 <- glmer(spikes ~ time + N_crise_P + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
-summary(m2)
-LMM_check(m2)
-anova(m1,m2) # Significant
+m4 <- glmmTMB(spikes ~ time + N_crise_P + Type + Les +(1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9074.84
 
-m3 <- glmer(spikes ~ time + N_crise_P + Type + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
+m5 <- glmmTMB(spikes ~ time + N_crise_P + Type + localisation_temp_ext +(1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 9074.46
 
-summary(m3)
-LMM_check(m3)
-anova(m2,m3) # Significant
+m6 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P +(1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 8927.30
 
-m4 <- glmer(spikes ~ time + N_crise_P + Type + Les +(1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
+m7 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 8844.58
 
-summary(m4)
-LMM_check(m4)
-anova(m3,m4) # Not significant
+m8 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type +  time*Les + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 8848.38
 
-m5 <- glmer(spikes ~ time + N_crise_P + Type + localisation_temp_ext +(1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
-
-summary(m5)
-LMM_check(m5)
-anova(m3,m5) # Not significant 
-
-m6 <- glmer(spikes ~ time + N_crise_P + Type + time:N_crise_P +(1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
-
-summary(m6)
-LMM_check(m6)
-anova(m3,m6) # Significant
-
-m7 <- glmer(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy) 
-
-summary(m7)
-LMM_check(m7)
-anova(m6,m7) # Significant
-
-
-m8 <- glmer(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type +  time*Les + (1|Patient),
-            family = poisson(link = "log"),
-            data = data_tidy,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE))) # AIC = 10817 ; BIC = 10875.5 ; deviance = 10779
-summary(m8)
-LMM_check(m8)
-anova(m7, m8) # Significant
-
-m9 <- glmer(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + time*Les + time*localisation_temp_ext + (1|Patient),
-             family = poisson(link = "log"),
-             data = data_tidy,
-             control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))# AIC = 10353 ; BIC = 10448 ; deviance = 10291
-summary(m9)
-LMM_check(m9)
-anova(m8, m9) # Significant
-
-# Summary of the models according to the anova() and the model fitting information
-list_models <- list(m0 = m0, m1 = m1, m2 = m2, m3 = m3, m4 = m4, m5 = m5, 
-                    m6 = m6, m7 = m7, m8 = m8, m9 = m9)
-mod_fitting(list_models) # To display the models according to their fitting parameters
-cross_anova_models(list_models) # To check the model selection by examining the anova of each model
+m9 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + time*localisation_temp_ext + (1|Patient),
+              data = data_tidy,
+              ziformula = ~1,
+              family = poisson) # AIC = 8812.92
 
 m_best <- m9
 summary(m_best)
-LMM_check(m_best)
 Anova(m_best)
-r.squaredGLMM(m_best)
 
 
 # post-hocs
-emmeans(m_best, list(pairwise ~ time|Les), method = "tukey")
 emmeans(m_best, list(pairwise ~ time| localisation_temp_ext), method = "tukey")
 
 # Clear the environement 
@@ -250,7 +211,7 @@ data_withdr_off2%>%
 # STATISTICAL MODELING
 # Exploration of the distribution of the DV (number of spikes) and exploration of the variability of the random factors of the model
 exp_plots_LMM(data_withdr, data_withdr$N_spikes, data_withdr$pat_number, data_withdr$cat_withdr_delay)  # The DV is not normally distributed (more of a log distribution since the spike variable is type double)
-
+ggplot(data_withdr_off1, aes(x = N_spikes))+geom_density()
 # Exploration of the distribution of the DV (log of number of spikes) and exploration of the variability of the random factors of the model
 exp_plots_LMM(data_withdr, data_withdr$log_N_spikes, data_withdr$pat_number, data_withdr$cat_withdr_delay)  # The DV is not normally distributed (more of a log distribution since the spike variable is type double)
 
