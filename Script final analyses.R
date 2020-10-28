@@ -61,9 +61,7 @@ data_tidy <- data_N_sz%>%
   filter(N_crise_P <= 4)%>%
   dplyr::select(Spikes_Baseline, Spikes_Seizure, Patient, N_crise_P, Type, Localisation, Les)%>%
   gather(key = "time", value = "spikes", -Patient, -N_crise_P, -Type, -Localisation, -Les)%>%
-  mutate(spikes_w0 = spikes + 0.0001, # Laplacian transformation of the data
-         log.spikes = log(spikes_w0),
-         localisation_temp_ext = case_when(Localisation == "R temporal" ~ "temporal",
+  mutate(localisation_temp_ext = case_when(Localisation == "R temporal" ~ "temporal",
                                            Localisation == "L temporal" ~ "temporal",
                                            TRUE ~ "extratemporal"))
 
@@ -78,72 +76,18 @@ data_tidy$time <- factor(data_tidy$time)
 
 str(data_tidy)
 
-# Exploration of the distribution of the DV (number of spikes) and exploration of the variability of the random factors of the model
-exp_plots_LMM(data_tidy, data_tidy$spikes, data_tidy$Patient, data_tidy$N_crise_P) # The DV is not normally distributed (more of a Poisson distribution)
-
 # STATISTICAL MODELING
-# From the simpler (empty) model to the most complete one, comparaison of which one reduces the most the AIC, BIC and deviance
-m0 <- glmmTMB(spikes~ 1 + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9387.22
 
-m1 <- glmmTMB(spikes ~ time + (1|Patient),
+mod_endpoint_1 <- glmmTMB(spikes ~ time:N_crise_P + time:Type + time*localisation_temp_ext + time*Les + (1|Patient),
               data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9380.62
-
-m2 <- glmmTMB(spikes ~ time + N_crise_P + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9360.44
-
-m3 <- glmmTMB(spikes ~ time + N_crise_P + Type + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9072.89
-
-m4 <- glmmTMB(spikes ~ time + N_crise_P + Type + Les +(1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9074.84
-
-m5 <- glmmTMB(spikes ~ time + N_crise_P + Type + localisation_temp_ext +(1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 9074.46
-
-m6 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P +(1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 8927.30
-
-m7 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 8844.58
-
-m8 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type +  time*Les + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 8848.38
-
-m9 <- glmmTMB(spikes ~ time + N_crise_P + Type + time:N_crise_P + time:Type + time*localisation_temp_ext + (1|Patient),
-              data = data_tidy,
-              ziformula = ~1,
-              family = poisson) # AIC = 8812.92
-
-m_best <- m9
-summary(m_best)
-Anova(m_best)
+              ziformula = ~ time:N_crise_P + time:Type + time*localisation_temp_ext + time*Les,
+              family = truncated_poisson)
+summary(mod_endpoint_1)
+Anova(mod_endpoint_1)
 
 
 # post-hocs
-emmeans(m_best, list(pairwise ~ time| localisation_temp_ext), method = "tukey")
-
-# Clear the environement 
-rm(m0, m1, m10, m2, m3, m4, m5, m6, m7, m8, m9)
-dev.off()
+emmeans(mod_endpoint_1, list(pairwise ~ time| localisation_temp_ext), method = "tukey")
 
 
 ##------------------------------------------------------------------------
@@ -209,258 +153,28 @@ data_withdr_off2%>%
 
 
 # STATISTICAL MODELING
-# Exploration of the distribution of the DV (number of spikes) and exploration of the variability of the random factors of the model
-exp_plots_LMM(data_withdr, data_withdr$N_spikes, data_withdr$pat_number, data_withdr$cat_withdr_delay)  # The DV is not normally distributed (more of a log distribution since the spike variable is type double)
-ggplot(data_withdr_off1, aes(x = N_spikes))+geom_density()
-# Exploration of the distribution of the DV (log of number of spikes) and exploration of the variability of the random factors of the model
-exp_plots_LMM(data_withdr, data_withdr$log_N_spikes, data_withdr$pat_number, data_withdr$cat_withdr_delay)  # The DV is not normally distributed (more of a log distribution since the spike variable is type double)
-
 # The chosen model type is glmer to account for the non-linearity of the data. Since the models fits a log function, a Laplacian transformation was applied. Moreover, a log transformation of the data gave badly distributed residuals
-##### Fitting of the best model for **OFF1** 
-m0_glmer <- glmer(lapl_N_spikes ~ 1 + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1) 
-summary(m0_glmer)
-LMM_check(m0_glmer)
-
-m0_lmer <- lmer(log_N_spikes ~ 1 + (1|pat_code),
-             REML = F,
-             data = data_withdr_off1) 
-summary(m0_lmer)
-LMM_check(m0_lmer) # The residuals are not well distributed for a lmer model even with the log_transformation, then glmer model will be used.
-
-m1 <- glmer(lapl_N_spikes ~ onoff + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-
-anova(m0_glmer, m1) # Sig
-summary(m1)
-LMM_check(m1)
-
-m2 <- glmer(lapl_N_spikes ~ onoff + pres_lesion +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1)
-summary(m2)
-anova(m1, m2) # Not sig
-LMM_check(m2)
-
-m3 <- glmer(lapl_N_spikes ~ onoff + loc_temp_ext +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1)
-anova(m1, m3) # Not sig
-summary(m3)
-LMM_check(m3)
-
-m4 <- glmer(lapl_N_spikes ~ onoff + sz_type +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m4) # Not sig
-summary(m4)
-LMM_check(m4)
-
-m5 <- glmer(lapl_N_spikes ~ onoff + cat_withdr_delay +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m5) # Not sig
-summary(m5)
-LMM_check(m5)
-
-m6 <- glmer(lapl_N_spikes ~ onoff + N_AED +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m6) # Sig
-summary(m6)
-LMM_check(m6)
-
-m7 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + N_AED +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m6, m7) # Sig
-summary(m7)
-LMM_check(m7)
-
-m8 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + N_AED + onoff*loc_temp_ext +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m7, m8) # Sig
-summary(m8)
-LMM_check(m8)
-
-m9 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + N_AED + onoff*loc_temp_ext + onoff*sz_type + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off1,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m8, m9) # Sig
-summary(m9)
-LMM_check(m9)
-
-m10 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + N_AED + onoff*loc_temp_ext + onoff*sz_type + onoff*cat_withdr_delay + (1|pat_code),
+##### OFF 1
+m_off_1 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*N_AED + onoff*loc_temp_ext + onoff*sz_type + onoff*cat_withdr_delay + (1|pat_code),
              family = gaussian(link = "log"),
              data = data_withdr_off1,
              control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m9, m10) # Sig
-summary(m10)
-LMM_check(m10)
-
-m11 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*N_AED + onoff*loc_temp_ext + onoff*sz_type + onoff*cat_withdr_delay + (1|pat_code),
-             family = gaussian(link = "log"),
-             data = data_withdr_off1,
-             control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m10, m11) # Sig
-summary(m11)
-LMM_check(m11)
-
-list_models <- list(M0 = m0_glmer, M1 = m1, M2 = m2, M3 = m3, M4 = m4, M5 = m5, M6 = m6, M7 = m7, M8 = m8, M9 = m9, M10 = m10, M11 = m11)
-mod_fitting(list_models) # To display the models according to their fitting parameters
-cross_anova_models(list_models) # To check the model selection by examining the anova of each model
-
-m_best_off1 <- m11
-Anova(m_best_off1)
-summary(m_best_off1)
-LMM_check(m_best_off1) # The postulates are acceptably respected
-ICC_ranef(m_best_off1)
-r.squaredGLMM(m_best_off1)
+                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE))) 
 
 
-# Clear the environement 
-rm(m0_lmer, m0_glmer, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11)
-dev.off()
+Anova(m_off_1)
+r.squaredGLMM(m_off_1)
 
 ### fitting the best_model for off2
 
-m0_glmer <- glmer(lapl_N_spikes ~ 1 + (1|pat_code),
-                  family = gaussian(link = "log"),
-                  data = data_withdr_off2)
-summary(m0_glmer)
-LMM_check(m0_glmer) # 2 Extreme residus --> to remove ? 
+m_off_2 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*N_AED + onoff*loc_temp_ext  + onoff*cat_withdr_delay +  (1|pat_code),
+                 family = gaussian(link = "log"),
+                 data = data_withdr_off2,
+                 control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
+                                        optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE))) 
+# sz_type could not be included in that model since the lower number of data points
 
-m1 <- glmer(lapl_N_spikes ~ onoff + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-
-anova(m0_glmer, m1) # Sig
-summary(m1)
-LMM_check(m1)
-
-m2 <- glmer(lapl_N_spikes ~ onoff + pres_lesion +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m2) # Not sig
-summary(m2)
-LMM_check(m2)
-
-m3 <- glmer(lapl_N_spikes ~ onoff + loc_temp_ext +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m3) # Not sig
-summary(m3)
-LMM_check(m3)
-
-m4 <- glmer(lapl_N_spikes ~ onoff + sz_type +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m4) # Not sig
-summary(m4)
-LMM_check(m4)
-
-m5 <- glmer(lapl_N_spikes ~ onoff + cat_withdr_delay +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m5) # Not sig
-summary(m5)
-LMM_check(m5)
-
-m6 <- glmer(lapl_N_spikes ~ onoff + N_AED +(1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m6) # Not sig
-summary(m6)
-LMM_check(m6)
-
-m7 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m1, m7) # Sig
-summary(m7)
-LMM_check(m7)
-
-m8 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*loc_temp_ext + (1|pat_code),
-            family = gaussian(link = "log"),
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m7, m8) # Sig
-summary(m8)
-LMM_check(m8)
-
-m9 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*loc_temp_ext + onoff*sz_type + (1|pat_code),
-            family = gaussian(link = "log"), # fixed-effect model matrix is rank deficient
-            data = data_withdr_off2,
-            control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                   optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-
-m10 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*loc_temp_ext + onoff*cat_withdr_delay + (1|pat_code),
-             family = gaussian(link = "log"), 
-             data = data_withdr_off2,
-             control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-
-anova(m8, m10) # Sig
-summary(m10)
-LMM_check(m10)
-
-m11 <- glmer(lapl_N_spikes ~ onoff*pres_lesion + onoff*loc_temp_ext + onoff*cat_withdr_delay + onoff*N_AED + (1|pat_code),
-             family = gaussian(link = "log"), 
-             data = data_withdr_off2,
-             control = glmerControl(optimizer = "optimx", calc.derivs = FALSE,
-                                    optCtrl = list(method = "bobyqa", starttests = FALSE, kkt = FALSE)))
-anova(m10, m11) # Sig
-summary(m11)
-LMM_check(m11) # Some extreme residus --> to remove ?
-
-list_models <- list(M0 = m0_glmer, M1 = m1, M2 = m2, M3 = m3, M4 = m4, M5 = m5, M6 = m6, M7 = m7, M8 = m8, M10 = m10, M11 = m11)
-mod_fitting(list_models)
-cross_anova_models(list_models)
-
-m_best_off2 <- m11
-LMM_check(m_best_off2)
-Anova(m_best_off2)
-summary(m_best_off2)
-ICC_ranef(m_best_off2)
-r.squaredGLMM(m_best_off2)
-
-
-# Clear the environement 
-rm(list_models, m0_glmer, m1, m10, m11, m2, m3, m4, m5, m6, m7, m8, m9)
-dev.off()
+Anova(m_off_2)
+r.squaredGLMM(m_off_2)
 
 #########################################---------END---------#########################################
